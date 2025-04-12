@@ -92,7 +92,7 @@ def solve_partial(composition: list[str], lb: int, ub: int, low_bounds: dict[str
     stamina = (silithid_exo_pet, fortitude, dark_intent, command_shout)
 
     # 4% Physical
-    ebon_brittle = pulp.LpVariable('Brittle Bones/Plague', cat='Integer')
+    ebon_brittle = pulp.LpVariable('DK Plague', cat='Integer')
     ravager_pet = pulp.LpVariable('Ravager Pet', cat='Integer')
     judgement_bold = pulp.LpVariable('Judgement of the Bold', cat='Integer')
     colossus = pulp.LpVariable('Colossus Smash', cat='Integer')

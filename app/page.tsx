@@ -135,7 +135,6 @@ const groupedClasses = {
 // Type for buff data returned from API
 type BuffData = {
   [category: string]: { [buff: string]: number }
-
 }
 
 export default function RaidSetupCalculator() {
@@ -314,7 +313,7 @@ export default function RaidSetupCalculator() {
       if (!response.ok) {
         throw new Error("Failed to analyze raid composition")
       }
-      const data = await response.json();
+      const data = await response.json()
       setBuffData(data)
     } catch (err) {
       setError(err instanceof Error ? err.message : "An unknown error occurred")
@@ -327,9 +326,34 @@ export default function RaidSetupCalculator() {
     <div className="min-h-screen bg-slate-900 text-white">
       <div className="container mx-auto py-4 px-3">
         <div className="bg-slate-800 border border-amber-500/20 rounded-lg overflow-hidden">
-          <div className="border-b border-amber-500/20 p-3">
-            <h1 className="text-amber-400 text-xl font-bold">Mists of Pandaria Raid Setup Calculator</h1>
-            <p className="text-slate-300 text-sm">Drag and drop classes to build your 10-player raid</p>
+          <div className="border-b border-amber-500/20 p-3 flex justify-between items-start">
+            <div>
+              <h1 className="text-amber-400 text-xl font-bold">Mists of Pandaria Raid Setup Calculator</h1>
+              <p className="text-slate-300 text-sm">Drag and drop classes to build your 10-player raid</p>
+            </div>
+            <a
+              href="https://github.com/SimonManour/mop-raid-composer"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center text-xs bg-slate-700 hover:bg-slate-600 text-slate-300 px-2 py-1 rounded-md"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-3 w-3 mr-1"
+              >
+                <path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"></path>
+                <path d="M9 18c-4.51 2-5-2-7-2"></path>
+              </svg>
+              GitHub
+            </a>
           </div>
           <div className="p-3">
             <div className="flex flex-col md:flex-row gap-4">
@@ -507,7 +531,7 @@ export default function RaidSetupCalculator() {
                                   <p className="text-xs text-slate-400 italic">No buffs in this category</p>
                                 ) : (
                                   <div className="flex flex-wrap gap-1">
-                                    {Object.entries(data).map(([buff,count]) => {
+                                    {Object.entries(data).map(([buff, count]) => {
                                       const isMissing = count === 0
 
                                       return (
