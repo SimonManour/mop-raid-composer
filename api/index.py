@@ -1,9 +1,9 @@
+from flask import Flask, request, jsonify
+
 import logging
 import sys
 from collections import defaultdict
 from typing import NamedTuple
-
-from flask import Flask, request, jsonify
 import pulp
 from pulp import LpProblem, LpStatus, lpSum, LpMaximize, PULP_CBC_CMD
 
