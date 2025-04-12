@@ -1,12 +1,22 @@
-
 import dataclasses
+import logging
+import sys
 
+# Custom formatter without milliseconds
+formatter = logging.Formatter(
+    fmt='[%(levelname)s]-[%(asctime)s]-[%(filename)s:%(lineno)d] - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'  # No milliseconds here
+)
 
-class logger:
-    @staticmethod
-    def info(msg):
-        print(msg)
+# Set up handler for stdout
+handler = logging.StreamHandler(sys.stdout)
+handler.setFormatter(formatter)
 
+# Set up logger
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)  # Or INFO, WARNING, etc.
+logger.handlers = [handler]  # Replace existing handlers
+logger.propagate = False  # Prevent double logging
 
 @dataclasses.dataclass
 class PartialSolution:
