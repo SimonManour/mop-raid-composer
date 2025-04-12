@@ -1,38 +1,27 @@
 from flask import Flask, request, jsonify
 
-import logging
-import sys
-from collections import defaultdict
-from typing import NamedTuple
-import pulp
-from pulp import LpProblem, LpStatus, lpSum, LpMaximize, PULP_CBC_CMD
-
-# Custom formatter without milliseconds
-formatter = logging.Formatter(
-    fmt='[%(levelname)s]-[%(asctime)s]-[%(filename)s:%(lineno)d] - %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'  # No milliseconds here
-)
-
-# Set up handler for stdout
-handler = logging.StreamHandler(sys.stdout)
-handler.setFormatter(formatter)
-
-# Set up logger
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)  # Or INFO, WARNING, etc.
-logger.handlers = [handler]  # Replace existing handlers
-logger.propagate = False  # Prevent double logging
-
 app = Flask(__name__)
 
+import dataclasses
 
-class PartialSolution(NamedTuple):
+
+class logger:
+    @staticmethod
+    def info(msg):
+        print(msg)
+
+
+@dataclasses.dataclass
+class PartialSolution:
     optimal: bool
     assignment: dict[str, list[str]]
     values: dict[str, int]
 
 
 def solve_partial(composition: list[str], lb: int, ub: int, low_bounds: dict[str, int]) -> PartialSolution:
+    import pulp
+    from pulp import LpProblem, LpStatus, lpSum, LpMaximize, PULP_CBC_CMD
+    from collections import defaultdict
     problem = LpProblem('RaidBuffCoverage', LpMaximize)
 
     # 10% AttackPower
