@@ -1,99 +1,120 @@
-from flask import Flask
+import logging
+import sys
+from collections import defaultdict
+from typing import NamedTuple
+
+from flask import Flask, request, jsonify
 import pulp
+from pulp import LpProblem, LpStatus, lpSum, LpMaximize, PULP_CBC_CMD
+
+# Custom formatter without milliseconds
+formatter = logging.Formatter(
+    fmt='[%(levelname)s]-[%(asctime)s]-[%(filename)s:%(lineno)d] - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'  # No milliseconds here
+)
+
+# Set up handler for stdout
+handler = logging.StreamHandler(sys.stdout)
+handler.setFormatter(formatter)
+
+# Set up logger
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)  # Or INFO, WARNING, etc.
+logger.handlers = [handler]  # Replace existing handlers
+logger.propagate = False  # Prevent double logging
 
 app = Flask(__name__)
 
 
-def lp():
-    from collections import defaultdict
+class PartialSolution(NamedTuple):
+    optimal: bool
+    assignment: dict[str, list[str]]
+    values: dict[str, int]
 
-    import pulp
-    from pulp import LpProblem, LpStatus, lpSum, LpMaximize
 
+def solve_partial(composition: list[str], lb: int, ub: int, low_bounds: dict[str, int]) -> PartialSolution:
     problem = LpProblem('RaidBuffCoverage', LpMaximize)
 
-    T = pulp.LpVariable('T', lowBound=0, cat='Integer')
-
     # 10% AttackPower
-    horn_of_winter = pulp.LpVariable('horn_of_winter', lowBound=0, cat='Integer')
-    true_shot_aura = pulp.LpVariable('true_shot_aura', lowBound=0, cat='Integer')
-    battle_shout = pulp.LpVariable('battle_shout', lowBound=0, cat='Integer')
+    horn_of_winter = pulp.LpVariable('Horn Of Winter', cat='Integer')
+    true_shot_aura = pulp.LpVariable('True Shot Aura', cat='Integer')
+    battle_shout = pulp.LpVariable('Battle Shout', cat='Integer')
     attack_power = (horn_of_winter, true_shot_aura, battle_shout)
 
     # 10% Attack Speed
-    unholy_aura = pulp.LpVariable('unholy_aura', lowBound=0, cat='Integer')
-    hyena_pet = pulp.LpVariable('hyena_pet', lowBound=0, cat='Integer')
-    swiftblade = pulp.LpVariable('swiftblade', lowBound=0, cat='Integer')
-    unleashed_rage = pulp.LpVariable('unleashed_rage', lowBound=0, cat='Integer')
+    unholy_aura = pulp.LpVariable('Unholy Aura', cat='Integer')
+    hyena_pet = pulp.LpVariable('Hyena Pet', cat='Integer')
+    swiftblade = pulp.LpVariable('Swift Blade', cat='Integer')
+    unleashed_rage = pulp.LpVariable('Unleashed Rage', cat='Integer')
     attack_speed = (unholy_aura, hyena_pet, swiftblade, unleashed_rage)
 
     # 10% Sp
-    still_water_exo_pet = pulp.LpVariable('still_water_exo_pet', lowBound=0, cat='Integer')
-    arcane_brilliance = pulp.LpVariable('arcane_brilliance', lowBound=0, cat='Integer')
-    burning_wrath = pulp.LpVariable('burning_wrath', lowBound=0, cat='Integer')
-    dark_intent = pulp.LpVariable('dark_intent', lowBound=0, cat='Integer')
-    spell_power = (still_water_exo_pet, arcane_brilliance, battle_shout, dark_intent)
+    still_water_exo_pet = pulp.LpVariable('Water Strider Exotic', cat='Integer')
+    arcane_brilliance = pulp.LpVariable('Arcane Brilliance', cat='Integer')
+    burning_wrath = pulp.LpVariable('Burning Wrath', cat='Integer')
+    dark_intent = pulp.LpVariable('Dark Intent', cat='Integer')
+    spell_power = (still_water_exo_pet, arcane_brilliance, burning_wrath, dark_intent)
 
     # +5% Spell Haste
-    moonkin_aura = pulp.LpVariable('moonkin', lowBound=0, cat='Integer')
-    sporebat_pet = pulp.LpVariable('sporebat_pet', lowBound=0, cat='Integer')
-    shadow_form = pulp.LpVariable('shadow_form', lowBound=0, cat='Integer')
-    elemental_oath = pulp.LpVariable('elemental_oath', lowBound=0, cat='Integer')
+    moonkin_aura = pulp.LpVariable('Moonkin', cat='Integer')
+    sporebat_pet = pulp.LpVariable('Sporebat Pet', cat='Integer')
+    shadow_form = pulp.LpVariable('Shadow Form', cat='Integer')
+    elemental_oath = pulp.LpVariable('Elemental Oath', cat='Integer')
     spell_haste = (moonkin_aura, sporebat_pet, shadow_form, elemental_oath)
 
     # +5% Critical Strike Chance
-    leader_of_pack = pulp.LpVariable('leader_pack', lowBound=0, cat='Integer')
-    devil_exo_pet = pulp.LpVariable('devil_exo_pet', lowBound=0, cat='Integer')
-    strider_exo_pet = pulp.LpVariable('strider_exo_pet', lowBound=0, cat='Integer')
-    wolf_pet = pulp.LpVariable('wolf_pet', lowBound=0, cat='Integer')
+    leader_of_pack = pulp.LpVariable('Leader of Pack', cat='Integer')
+    devil_exo_pet = pulp.LpVariable('Devilsaur Exotic', cat='Integer')
+    wolf_pet = pulp.LpVariable('Wolf Pet', cat='Integer')
     # ++ Arcane brilliance
-    tiger_legacy = pulp.LpVariable('tiger_legacy', lowBound=0, cat='Integer')
-    critical_chance = (leader_of_pack, devil_exo_pet, strider_exo_pet, wolf_pet, tiger_legacy, arcane_brilliance)
+    tiger_legacy = pulp.LpVariable('Tiger Legacy', cat='Integer')
+    critical_chance = (leader_of_pack, devil_exo_pet, still_water_exo_pet, wolf_pet, tiger_legacy, arcane_brilliance)
 
     # 3000 Mastery
-    cat_pet = pulp.LpVariable('cat_pet', lowBound=0, cat='Integer')
-    spirit_exo_pet = pulp.LpVariable('spirit_exo_pet', lowBound=0, cat='Integer')
-    pala_might = pulp.LpVariable('pala_might', lowBound=0, cat='Integer')
-    shaman_grace = pulp.LpVariable('shaman_grace', lowBound=0, cat='Integer')
+    cat_pet = pulp.LpVariable('Cat Pet', cat='Integer')
+    spirit_exo_pet = pulp.LpVariable('Spirit Beast Exotic', cat='Integer')
+    pala_might = pulp.LpVariable('Blessing of Might', cat='Integer')
+    shaman_grace = pulp.LpVariable('Grace of Air', cat='Integer')
     mastery = (cat_pet, spirit_exo_pet, pala_might, shaman_grace)
 
     # 5% Stats
-    druid_mark = pulp.LpVariable('druid_mark', lowBound=0, cat='Integer')
-    spider_exo_pet = pulp.LpVariable('spider_exo_pet', lowBound=0, cat='Integer')
-    emperor_legacy = pulp.LpVariable('emperor_legacy', lowBound=0, cat='Integer')
-    pala_kings = pulp.LpVariable('pala_kings', lowBound=0, cat='Integer')
+    druid_mark = pulp.LpVariable('Mark of Wild', cat='Integer')
+    spider_exo_pet = pulp.LpVariable('Shale Spider Exotic', cat='Integer')
+    emperor_legacy = pulp.LpVariable('Emperor Legacy', cat='Integer')
+    pala_kings = pulp.LpVariable('Blessing of Kings', cat='Integer')
     stats = (druid_mark, spider_exo_pet, emperor_legacy, pala_kings)
 
     # 10% Stamina
-    silithid_exo_pet = pulp.LpVariable('silithid_exo_pet', lowBound=0, cat='Integer')
-    fortitude = pulp.LpVariable('fortitude', lowBound=0, cat='Integer')
+    silithid_exo_pet = pulp.LpVariable('Qiraji Exotic', cat='Integer')
+    fortitude = pulp.LpVariable('Fortitude', cat='Integer')
     # ++ Dark intent
-    command_shout = pulp.LpVariable('command_shout', lowBound=0, cat='Integer')
+    command_shout = pulp.LpVariable('Commanding Shout', cat='Integer')
     stamina = (silithid_exo_pet, fortitude, dark_intent, command_shout)
 
     # 4% Physical
-    ebon_brittle = pulp.LpVariable('ebon_brittle', lowBound=0, cat='Integer')
-    ravager_pet = pulp.LpVariable('ravager_pet', lowBound=0, cat='Integer')
-    judgement_bold = pulp.LpVariable('judgement_bold', lowBound=0, cat='Integer')
-    colossus = pulp.LpVariable('colossus', lowBound=0, cat='Integer')
+    ebon_brittle = pulp.LpVariable('Brittle Bones/Plague', cat='Integer')
+    ravager_pet = pulp.LpVariable('Ravager Pet', cat='Integer')
+    judgement_bold = pulp.LpVariable('Judgement of the Bold', cat='Integer')
+    colossus = pulp.LpVariable('Colossus Smash', cat='Integer')
     physical_damage = (ebon_brittle, ravager_pet, judgement_bold, colossus)
 
     # 12% Armor
-    faerie_fire = pulp.LpVariable('faerie_fire', lowBound=0, cat='Integer')
-    raptor_pet = pulp.LpVariable('raptor_pet', lowBound=0, cat='Integer')
-    expose_armor = pulp.LpVariable('expose_armor', lowBound=0, cat='Integer')
-    sunder_armor = pulp.LpVariable('sunder_armor', lowBound=0, cat='Integer')
+    faerie_fire = pulp.LpVariable('Faerie Fire', cat='Integer')
+    raptor_pet = pulp.LpVariable('Raptor Pet', cat='Integer')
+    expose_armor = pulp.LpVariable('Expose Armor', cat='Integer')
+    sunder_armor = pulp.LpVariable('Sunder Armor', cat='Integer')
     armor = (faerie_fire, raptor_pet, expose_armor, sunder_armor)
 
     # 5% Spell Damage
-    dragon_hawk_pet = pulp.LpVariable('dragon_hawk_pet', lowBound=0, cat='Integer')
-    master_poisoner = pulp.LpVariable('master_poisoner', lowBound=0, cat='Integer')
-    curse_of_elements = pulp.LpVariable('curse_of_elements', lowBound=0, cat='Integer')
+    dragon_hawk_pet = pulp.LpVariable('Dragon Hawk Pet', cat='Integer')
+    master_poisoner = pulp.LpVariable('Master Poisoner', cat='Integer')
+    curse_of_elements = pulp.LpVariable('Curse of Elements', cat='Integer')
     spell_damage = (dragon_hawk_pet, master_poisoner, curse_of_elements)
 
     requirements = {
-        '10% AttackPower': attack_power,
-        '10% AttackSpeed': attack_speed,
+        '10% Attack Power': attack_power,
+        '10% Attack Speed': attack_speed,
+        '10% Spell Power': spell_power,
         '5% Spell Haste': spell_haste,
         '5% Crit': critical_chance,
         '3000 Mastery': mastery,
@@ -104,12 +125,17 @@ def lp():
         '5% Spell Damage': spell_damage,
     }
 
+    # Set low bounds according to input spec
     for variables in requirements.values():
-        problem += lpSum(variables) <= 1
+        for variable in variables:
+            variable.lowBound = low_bounds[variable.name] if variable.name in low_bounds else 0
+
+    for variables in requirements.values():
+        problem += lpSum(variables) <= ub
+        problem += lb <= lpSum(variables)
 
     pets = (hyena_pet, sporebat_pet, wolf_pet, cat_pet, ravager_pet, raptor_pet, dragon_hawk_pet)
-    exotic_pets = (
-        spider_exo_pet, strider_exo_pet, spirit_exo_pet, devil_exo_pet, silithid_exo_pet, still_water_exo_pet)
+    exotic_pets = (spider_exo_pet, spirit_exo_pet, devil_exo_pet, silithid_exo_pet, still_water_exo_pet)
 
     class_buffs = {
         'dk': [horn_of_winter],
@@ -135,41 +161,15 @@ def lp():
         'warrior_dps': [colossus]
     }
 
-    # raid = [
-    #     'dk_blood',
-    #     'monk_brew',
-    #     'druid_resto',
-    #     'rogue_assa',
-    #     'priest_sh',
-    #     'warlock_destro',
-    #     'warrior_dps',
-    #     'shaman_ele',
-    #     'shaman_resto',
-    #     'mage_frost'
-    # ]
-
-    raid = [
-        'paladin_prot',
-        'monk_brew',
-        'priest_disc',
-        'druid_bala',
-        'rogue',
-        'warrior_dps',
-        'dk_dps',
-        'warlock',
-        'mage',
-        'rogue'
-    ]
-
     classes_basic: dict[str, int] = defaultdict(lambda: 0)
     classes_special: dict[str, int] = defaultdict(lambda: 0)
-    for member in raid:
+    for member in composition:
         classes_basic[member.split('_')[0]] += 1
         if '_' in member:
             classes_special[member] += 1
 
-    print(f'Basic classes: {dict(classes_basic)}')
-    print(f'Specializations: {dict(classes_special)}')
+    logger.info(f'Basic classes: {dict(classes_basic)}')
+    logger.info(f'Specializations: {dict(classes_special)}')
 
     # Special condition - no more pets than hunters
     problem += lpSum(pets) + lpSum(exotic_pets) <= classes_basic['hunter']
@@ -185,22 +185,63 @@ def lp():
     problem += lpSum(all_vars)
 
     # Solve
-    problem.solve()
-    if LpStatus[problem.status] == "Optimal":
-        print("All required buffs are covered with a valid setup.")
-    else:
-        print("Missing buffs — this raid setup is not sufficient.")
+    problem.solve(PULP_CBC_CMD(msg=False))
+    if LpStatus[problem.status] != "Optimal":
+        logger.info("Missing buffs — this raid setup is not sufficient.")
+        return PartialSolution(False, {}, {})
 
-    lines = ['Summary:']
+    logger.info("All required buffs are covered with a valid setup.")
+    solution: dict[str, list[str]] = {}
+    values: dict[str, int] = {}
+
     for buff_type, variables in requirements.items():
-        has_buffs = [var.name for var in variables if var.varValue >= 1]
-        lines.append(f'{buff_type}: {has_buffs}')
+        solution[buff_type] = [var.name for var in variables if var.varValue >= 1]
+        values.update({var.name: var.varValue for var in variables})
 
-    return lines
-
-@app.route("/api/python")
-def hello_world():
-    lines = lp()
-    return f"<p>{'</br>'.join(lines)}!</p>"
+    return PartialSolution(True, solution, values)
 
 
+def solve(composition: list[str]) -> dict[str, dict[str, int]]:
+    logger.info(f'Solving for: {composition}')
+
+    # Initial solution without a low bound requirement
+    best_solution: PartialSolution = solve_partial(composition, 0, 1, {})
+    low_bound: int = 0
+    upper_bound: int = 1
+    solution_found: bool = True
+
+    while solution_found:
+        logger.info(f'Solving with low bound: {low_bound + 1}, upper bound: {upper_bound + 1}')
+        partial_solution: PartialSolution = solve_partial(composition, low_bound + 1, upper_bound + 1, low_bounds={})
+        solution_found = partial_solution.optimal
+        if solution_found:
+            low_bound, upper_bound, best_solution = low_bound + 1, upper_bound + 1, partial_solution
+
+    logger.info(f'>> Solving with locked best solution, unbounded')
+    # Use big M as upper bound to allow the most buffs without losing existing ones
+    solution = solve_partial(composition, low_bound, ub=1000, low_bounds=best_solution.values)
+    logger.info(f'Current solution: {solution.assignment}')
+    logger.info(f'...With values: {solution.values}')
+
+    ret: dict[str, dict[str, int]] = {}
+    for buff_type, buffs in solution.assignment.items():
+        ret[buff_type] = {}
+        for buff in buffs:
+            ret[buff_type][buff] = solution.values[buff]
+
+    logger.info(ret)
+    return ret
+
+
+@app.route('/api/python', methods=['POST'])
+def analyze_raid_comp():
+    composition: list[str] = request.get_json()['composition']
+    # Merge specs providing same buffs
+    replacement = {
+        'dk_unholy': 'dk_dps',
+        'dk_frost': 'dk_dps',
+        'warrior_arms': 'warrior_dps',
+        'warrior_fury': 'warrior_dps'
+    }
+    composition = [replacement.get(cls, cls) for cls in composition]
+    return jsonify(solve(composition))
